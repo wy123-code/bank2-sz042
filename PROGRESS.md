@@ -5,18 +5,17 @@
 
 ---
 
-## 当前状态 · 对应六步流程:第③步 ✅ → 第④步 → 第⑤步(准备 PR)
+## 当前状态 · 对应六步流程:第⑤步 ✅ → 等待 CI 通过
 
 - **第①步(建仓+Secrets)**: 2026-06-08 完成
 - **第②步(开分支)**: `feature/1-project-scaffold` 从 main 切出
-- **第③步(模块开发)**: 阶段 A/B/C 全部完成:
-  - 项目骨架:requirements, Dockerfile, CI/CD workflows, app.py
-  - 数据分析页面:5 卡片 + 7 图表(饼图/直方图/职业对比/月份趋势/星期分布/5 个经济指标箱线图)
-  - 模型训练:LR+RF+XGB,自动选最优(RandomForest AUC=0.8871),model saved
-  - 在线预测:点选表单(20 特征)→ 预测结果 + 概率 + 置信度
-  - 测试:51 个用例全通过,覆盖率 99%
-- **第④步(本地 CI)**: 待执行
-- **第⑤步(PR)**: 待 push + 创建 PR
+- **第③步(模块开发)**: 阶段 A/B/C 全部完成
+- **第④步(本地 CI)**: 2026-06-08 通过
+  - ruff format --check: 17 files already formatted ✅
+  - ruff check: All checks passed ✅
+  - pytest --cov --cov-fail-under=80: 52 passed, 100% coverage ✅
+- **第⑤步(PR)**: PR #1 已创建 → https://github.com/wy123-code/bank2-sz042/pull/1
+- **第⑥步(合并 + CD)**: 等待用户合并 PR → 触发 CD 部署
 
 ---
 
