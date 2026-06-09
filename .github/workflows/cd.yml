@@ -1,0 +1,59 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            APP="bank2-sz042"
+            DEPLOY_DIR="/opt/bank2-sz042"
+            PORT_START=8009
+            PORT_END=8019
+            CONTAINER_PORT=8009
+
+            mkdir -p "$DEPLOY_DIR"
+
+            # Rsync-like: rebuild from git on server
+            cd "$DEPLOY_DIR"
+            if [ -d .git ]; then
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              git clone --depth=1 --branch main https://github.com/${{ github.repository }}.git .
+            fi
+
+            docker build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple -t "$APP":latest .
+
+            # Port fallback
+            port_in_use() {
+              ss -ltnH 2>/dev/null | grep -q ":$1 " && return 0
+              docker ps --format "{{.Ports}}" 2>/dev/null | grep -q ":$1->" && return 0
+              return 1
+            }
+            HOST_PORT=""
+            for p in $(seq $PORT_START $PORT_END); do
+              if ! port_in_use "$p"; then HOST_PORT="$p"; break; fi
+            done
+            [ -z "$HOST_PORT" ] && { echo "预留端口区间 $PORT_START-$PORT_END 已全部占用,部署中止"; exit 1; }
+            echo ">> 部署到主机端口 $HOST_PORT"
+
+            docker rm -f "$APP" 2>/dev/null || true
+            docker run -d --name "$APP" --restart unless-stopped -p "${HOST_PORT}:${CONTAINER_PORT}" "$APP":latest
+
+            sleep 5
+            curl -fsS "http://localhost:${HOST_PORT}/_stcore/health"
+            echo ">> 部署成功: http://${{ secrets.SSH_HOST }}:${HOST_PORT}"
