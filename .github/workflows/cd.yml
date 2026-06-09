@@ -37,6 +37,25 @@ jobs:
               echo ">> Docker already installed"
               DOCKER_NEEDS_SUDO=0
             fi
+
+            # ── Configure Docker registry mirrors (for servers with limited Docker Hub access) ──
+            MIRROR_CONF="/etc/docker/daemon.json"
+            if [ ! -f "$MIRROR_CONF" ] || ! grep -q "registry-mirrors" "$MIRROR_CONF" 2>/dev/null; then
+              echo ">> Configuring Docker registry mirrors..."
+              sudo mkdir -p /etc/docker
+              sudo tee "$MIRROR_CONF" <<'JSON_EOF'
+            {
+              "registry-mirrors": [
+                "https://docker.m.daocloud.io",
+                "https://hub-mirror.c.163.com",
+                "https://dockerproxy.com"
+              ]
+            }
+            JSON_EOF
+              sudo systemctl restart docker 2>/dev/null || sudo service docker restart 2>/dev/null || true
+              sleep 2
+            fi
+
             DOCKER="docker"
             [ "$DOCKER_NEEDS_SUDO" = "1" ] && DOCKER="sudo docker"
 
