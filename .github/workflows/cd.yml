@@ -19,6 +19,19 @@ jobs:
           script: |
             set -e
 
+            # ── Ensure Docker is installed ──
+            if ! command -v docker >/dev/null 2>&1; then
+              echo ">> Docker not found, installing..."
+              curl -fsSL https://get.docker.com | sudo sh
+              sudo usermod -aG docker "$USER"
+              DOCKER_NEEDS_SUDO=1
+            else
+              echo ">> Docker already installed"
+              DOCKER_NEEDS_SUDO=0
+            fi
+            DOCKER="docker"
+            [ "$DOCKER_NEEDS_SUDO" = "1" ] && DOCKER="sudo docker"
+
             APP="bank2-sz042"
             DEPLOY_DIR="/opt/bank2-sz042"
             PORT_START=8009
@@ -27,7 +40,6 @@ jobs:
 
             mkdir -p "$DEPLOY_DIR"
 
-            # Rsync-like: rebuild from git on server
             cd "$DEPLOY_DIR"
             if [ -d .git ]; then
               git fetch origin main
@@ -36,12 +48,11 @@ jobs:
               git clone --depth=1 --branch main https://github.com/${{ github.repository }}.git .
             fi
 
-            docker build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple -t "$APP":latest .
+            $DOCKER build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple -t "$APP":latest .
 
-            # Port fallback
             port_in_use() {
               ss -ltnH 2>/dev/null | grep -q ":$1 " && return 0
-              docker ps --format "{{.Ports}}" 2>/dev/null | grep -q ":$1->" && return 0
+              $DOCKER ps --format "{{.Ports}}" 2>/dev/null | grep -q ":$1->" && return 0
               return 1
             }
             HOST_PORT=""
@@ -51,8 +62,8 @@ jobs:
             [ -z "$HOST_PORT" ] && { echo "预留端口区间 $PORT_START-$PORT_END 已全部占用,部署中止"; exit 1; }
             echo ">> 部署到主机端口 $HOST_PORT"
 
-            docker rm -f "$APP" 2>/dev/null || true
-            docker run -d --name "$APP" --restart unless-stopped -p "${HOST_PORT}:${CONTAINER_PORT}" "$APP":latest
+            $DOCKER rm -f "$APP" 2>/dev/null || true
+            $DOCKER run -d --name "$APP" --restart unless-stopped -p "${HOST_PORT}:${CONTAINER_PORT}" "$APP":latest
 
             sleep 5
             curl -fsS "http://localhost:${HOST_PORT}/_stcore/health"
