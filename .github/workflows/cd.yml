@@ -22,8 +22,16 @@ jobs:
             # ── Ensure Docker is installed ──
             if ! command -v docker >/dev/null 2>&1; then
               echo ">> Docker not found, installing..."
-              curl -fsSL https://get.docker.com | sudo sh
-              sudo usermod -aG docker "$USER"
+              DOCKER_SCRIPT_OK=0
+              if curl -fsSL --connect-timeout 10 https://get.docker.com -o /tmp/get-docker.sh 2>/dev/null; then
+                sudo sh /tmp/get-docker.sh && DOCKER_SCRIPT_OK=1
+              fi
+              if [ "$DOCKER_SCRIPT_OK" = "0" ]; then
+                echo ">> Falling back to system docker.io package..."
+                sudo apt-get update -qq
+                sudo apt-get install -y -qq docker.io
+              fi
+              sudo usermod -aG docker "$USER" 2>/dev/null || true
               DOCKER_NEEDS_SUDO=1
             else
               echo ">> Docker already installed"
