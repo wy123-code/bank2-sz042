@@ -67,13 +67,20 @@ jobs:
 
             mkdir -p "$DEPLOY_DIR"
 
+            # ── Git: force HTTP/1.1 for firewall compatibility, with retry ──
+            git config --global http.version HTTP/1.1 2>/dev/null || true
             cd "$DEPLOY_DIR"
-            if [ -d .git ]; then
-              git fetch origin main
-              git reset --hard origin/main
-            else
-              git clone --depth=1 --branch main https://github.com/${{ github.repository }}.git .
-            fi
+            set +e
+            for i in 1 2 3; do
+              if [ -d .git ]; then
+                git fetch origin main && break
+              else
+                git clone --depth=1 --branch main https://github.com/${{ github.repository }}.git . && break
+              fi
+              echo ">> Git attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
+            set -e
 
             $DOCKER build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple -t "$APP":latest .
 
